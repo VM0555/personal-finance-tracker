@@ -9,15 +9,11 @@ import {
   ChevronDown,
   Plus,
   TrendingUp,
-  TrendingDown,
   DollarSign,
   PiggyBank,
   Search,
   MoreHorizontal,
   ShoppingCart,
-  Car,
-  Home,
-  Utensils,
 } from 'lucide-react'
 
 import {
@@ -55,24 +51,6 @@ const categoryColors = [
   '#fb7185',
 ]
 
-const categoryTotals = transactions
-  .filter((transaction) => transaction.TRANSACTION_TYPE === 'Debit')
-  .reduce((totals, transaction) => {
-    const category = transaction.CATEGORY || 'Other'
-    const amount = Number(transaction.AMOUNT || 0)
-
-    totals[category] = (totals[category] || 0) + amount
-
-    return totals
-  }, {})
-
-const categories = Object.entries(categoryTotals).map(
-  ([name, value], index) => ({
-    name,
-    value,
-    color: categoryColors[index % categoryColors.length],
-  })
-)
 
 
 const stocks = [
@@ -106,6 +84,27 @@ function App() {
   const [period, setPeriod] = useState('This month')
   const [account, setAccount] = useState('All accounts')
   const [transactions, setTransactions] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+
+  const categoryTotals = transactions
+    .filter((transaction) => transaction.TRANSACTION_TYPE === 'Debit')
+    .reduce((totals, transaction) => {
+      const category = transaction.CATEGORY || 'Other'
+      const amount = Number(transaction.AMOUNT || 0)
+
+      totals[category] = (totals[category] || 0) + amount
+
+      return totals
+    }, {})
+
+  const categories = Object.entries(categoryTotals).map(
+    ([name, value], index) => ({
+      name,
+      value,
+      color: categoryColors[index % categoryColors.length],
+    })
+  )
 
   const totalIncome = transactions
   .filter((transaction) => transaction.TRANSACTION_TYPE === 'Credit')
@@ -124,16 +123,38 @@ const formatCurrency = (amount) =>
   })
 
   useEffect(() => {
-  fetch('http://localhost:3000/server/personal_finance_tracker_function/transactions')
-    .then((response) => response.json())
-    .then((result) => {
-      console.log('Catalyst transactions:', result)
-      setTransactions(result.data || [])
-    })
-    .catch((error) => {
-      console.error('Error loading transactions:', error)
-    })
-}, [])
+    const controller = new AbortController()
+    const apiBase = (import.meta.env.VITE_API_BASE_URL || '/server/personal_finance_tracker_function').replace(/\/$/, '')
+
+    async function loadTransactions() {
+      try {
+        const response = await fetch(`${apiBase}/transactions`, {
+          signal: controller.signal,
+        })
+        if (!response.ok) {
+          throw new Error(`Unable to load transactions (HTTP ${response.status}).`)
+        }
+        const result = await response.json()
+        if (result.status === 'error') {
+          throw new Error(result.message || 'Unable to load transactions.')
+        }
+        const rows = Array.isArray(result) ? result : result.data ?? result.rows
+        if (!Array.isArray(rows)) {
+          throw new Error('The transactions API returned an unexpected response.')
+        }
+        setTransactions(rows)
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setLoadError(error.message || 'Unable to load transactions.')
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoading(false)
+      }
+    }
+
+    loadTransactions()
+    return () => controller.abort()
+  }, [])
 
   return (
     <div className="appShell">
@@ -202,6 +223,9 @@ const formatCurrency = (amount) =>
             </button>
           </div>
         </header>
+
+        {loading && <p role="status">Loading transactions…</p>}
+        {loadError && <p role="alert">{loadError} Check that the Catalyst API is running.</p>}
 
         <div className="filters">
           <div className="selectWrap">
@@ -411,11 +435,14 @@ const formatCurrency = (amount) =>
             </div>
 
             <div className="transactionList">
-              {transactions.map((transaction) => {
+              {!loading && !loadError && transactions.length === 0 && (
+                <p>No transactions yet.</p>
+              )}
+              {transactions.map((transaction, index) => {
                 const Icon = ShoppingCart
 
                 return (
-                  <div className="transactionRow" key={transaction.name}>
+                  <div className="transactionRow" key={transaction.ROWID ?? index}>
                     <div className="transactionInfo">
                       <div className="transactionIcon">
                         <Icon size={17} />
