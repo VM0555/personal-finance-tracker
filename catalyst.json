@@ -1,0 +1,9 @@
+{
+  "functions": {
+    "targets": [
+      "personal_finance_tracker_function"
+    ],
+    "ignore": [],
+    "source": "functions"
+  }
+}

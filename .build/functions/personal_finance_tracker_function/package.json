@@ -1,0 +1,11 @@
+{
+	"name": "personal_finance_tracker_function",
+	"version": "1.0.0",
+	"main": "index.js",
+	"author": "vmalempati@mail.bradley.edu",
+	"dependencies": {
+		"@zcatalyst/auth": "latest",
+		"@zcatalyst/cache": "latest",
+		"@zcatalyst/datastore": "^1.0.0"
+	}
+}

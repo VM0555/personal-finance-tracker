@@ -1,0 +1,30 @@
+{
+  "defaults": {
+    "project": 1,
+    "env": 1
+  },
+  "actives": {
+    "project": 1,
+    "env": 1
+  },
+  "projects": [
+    {
+      "idx": 1,
+      "id": "114742000000014057",
+      "name": "Personal-Finance-Tracker",
+      "domain": {
+        "id": "10135141924",
+        "name": "personal-finance-tracker-941606710.development"
+      },
+      "timezone": "America/New_York",
+      "env": [
+        {
+          "idx": 1,
+          "id": "941606710",
+          "name": "Development",
+          "type": 3
+        }
+      ]
+    }
+  ]
+}
