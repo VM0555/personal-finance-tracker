@@ -1,4 +1,5 @@
 'use strict';
+const { allRows, importTransactions } = require('./import-transactions');
 
 const { IncomingMessage, ServerResponse } = require("http");
 const { zcAuth } = require("@zcatalyst/auth");
@@ -19,16 +20,22 @@ const corsHeaders = {
 function readRequestBody(req) {
 	return new Promise((resolve, reject) => {
 		let body = '';
+        let tooLarge = false;
 
 		req.on('data', chunk => {
-			body += chunk.toString();
+            if (tooLarge) return;
+            body += chunk.toString();
+            if (Buffer.byteLength(body) > 1024 * 1024) {
+                tooLarge = true;
+                reject(Object.assign(new Error('Request too large.'), { statusCode: 413 }));
+            }
 		});
 
 		req.on('end', () => {
 			try {
 				resolve(body ? JSON.parse(body) : {});
 			} catch (error) {
-				reject(error);
+                reject(Object.assign(error, { statusCode: 400 }));
 			}
 		});
 
@@ -43,7 +50,7 @@ function readRequestBody(req) {
  */
 module.exports = async (req, res) => {
 
-	const url = req.url;
+	const url = new URL(req.url, 'http://localhost').pathname.replace(/^\/server\/personal_finance_tracker_function/, '') || '/';
 	const method = req.method;
 
 	// Handle browser CORS preflight request
@@ -64,7 +71,7 @@ module.exports = async (req, res) => {
 		if (url === '/transactions' && method === 'GET') {
 
 			const transactions =
-				await transactionsTable.getPagedRows({ maxRows: 100 });
+				{ data: await allRows(transactionsTable) };
 
 			res.writeHead(200, {
 				...corsHeaders,
@@ -74,6 +81,14 @@ module.exports = async (req, res) => {
 			res.end(JSON.stringify(transactions));
 			return;
 		}
+
+		if (url === '/transactions/import' && method === 'POST') {
+            const body = await readRequestBody(req);
+            const result = await importTransactions(transactionsTable, body.rows);
+            res.writeHead(200, { ...corsHeaders, 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+        }
 
 		// POST a new transaction
 		if (url === '/transactions' && method === 'POST') {
@@ -136,7 +151,7 @@ module.exports = async (req, res) => {
 
 		console.error(error);
 
-		res.writeHead(500, {
+		res.writeHead(error.statusCode || 500, {
 			...corsHeaders,
 			'Content-Type': 'application/json'
 		});

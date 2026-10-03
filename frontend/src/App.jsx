@@ -30,6 +30,7 @@ import {
 } from 'recharts'
 
 import './App.css'
+import StatementImport from './StatementImport'
 
 const cashFlow = [
   { month: 'May', income: 7900, spending: 5100 },
@@ -81,6 +82,8 @@ function MetricCard({ icon: Icon, label, value, note, positive }) {
 }
 
 function App() {
+  const [showImport, setShowImport] = useState(false)
+  const [reload, setReload] = useState(0)
   const [period, setPeriod] = useState('This month')
   const [account, setAccount] = useState('All accounts')
   const [transactions, setTransactions] = useState([])
@@ -107,7 +110,7 @@ function App() {
   )
 
   const totalIncome = transactions
-  .filter((transaction) => transaction.TRANSACTION_TYPE === 'Credit')
+  .filter((transaction) => transaction.TRANSACTION_TYPE === 'Credit' && !['Transfer', 'Refund'].includes(transaction.CATEGORY))
   .reduce((total, transaction) => total + Number(transaction.AMOUNT || 0), 0)
 
 const totalSpending = transactions
@@ -154,7 +157,7 @@ const formatCurrency = (amount) =>
 
     loadTransactions()
     return () => controller.abort()
-  }, [])
+  }, [reload])
 
   return (
     <div className="appShell">
@@ -184,7 +187,7 @@ const formatCurrency = (amount) =>
             Transactions
           </button>
 
-          <button className="navLink">
+          <button className="navLink" onClick={() => setShowImport(true)}>
             <Upload size={19} />
             Statements
           </button>
@@ -217,7 +220,7 @@ const formatCurrency = (amount) =>
               <Bell size={19} />
             </button>
 
-            <button className="primaryButton">
+            <button className="primaryButton" onClick={() => setShowImport(true)}>
               <Upload size={17} />
               Upload statement
             </button>
@@ -226,6 +229,8 @@ const formatCurrency = (amount) =>
 
         {loading && <p role="status">Loading transactions…</p>}
         {loadError && <p role="alert">{loadError} Check that the Catalyst API is running.</p>}
+
+        {showImport && <StatementImport onClose={() => setShowImport(false)} onImported={() => { setLoading(true); setLoadError(''); setReload(value => value + 1) }} />}
 
         <div className="filters">
           <div className="selectWrap">
